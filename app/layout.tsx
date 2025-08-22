@@ -1,8 +1,10 @@
+// app/layout.tsx
 import "./globals.css";
 import type { Metadata } from "next";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import StickyCTA from "../components/StickyCTA";
+import AuthProvider from "../components/AuthProvider"; // use relative import to avoid alias hiccups
 
 // Prefer setting NEXT_PUBLIC_SITE_URL in your env (e.g. https://needix.app)
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -78,24 +80,28 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="en" className="h-full">
       <body className="min-h-screen bg-background text-foreground font-sans antialiased">
-        {/* JSON-LD for search engines */}
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
-        />
+        <AuthProvider>
+          {/* JSON-LD for search engines */}
+          <script
+            type="application/ld+json"
+            // avoid React complaining if SSR/client differ
+            suppressHydrationWarning
+            dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+          />
 
-        <SiteHeader />
+          <SiteHeader />
 
-        <main className="mx-auto max-w-6xl px-4">{children}</main>
+          <main className="mx-auto max-w-6xl px-4">{children}</main>
 
-        <SiteFooter />
-        <StickyCTA heroCtaId={""} />
+          <SiteFooter />
+          <StickyCTA heroCtaId="" />
 
-        {/* Background accents */}
-        <div className="pointer-events-none fixed inset-0 -z-10">
-          <div className="absolute -top-20 -left-40 h-[32rem] w-[32rem] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.10),transparent_60%)] blur-2xl" />
-          <div className="absolute top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.10),transparent_60%)] blur-2xl" />
-        </div>
+          {/* Background accents */}
+          <div className="pointer-events-none fixed inset-0 -z-10">
+            <div className="absolute -top-20 -left-40 h-[32rem] w-[32rem] rounded-full bg-[radial-gradient(circle,rgba(255,255,255,0.10),transparent_60%)] blur-2xl" />
+            <div className="absolute top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.10),transparent_60%)] blur-2xl" />
+          </div>
+        </AuthProvider>
       </body>
     </html>
   );

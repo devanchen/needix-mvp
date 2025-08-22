@@ -1,100 +1,62 @@
+// components/SiteHeader.tsx
 "use client";
 
 import Link from "next/link";
-import { useState, useEffect } from "react";
+import { usePathname } from "next/navigation";
+import UserButton from "./UserButton"; // if you haven't added this yet, swap with a plain <Link href="/signin">Sign in</Link>
 
 export default function SiteHeader() {
-  const [open, setOpen] = useState(false);
+  const pathname = usePathname() || "/";
 
-  // Lock body scroll when drawer is open
-  useEffect(() => {
-    if (open) {
-      document.body.style.overflow = "hidden";
-    } else {
-      document.body.style.overflow = "";
-    }
-    return () => {
-      document.body.style.overflow = "";
-    };
-  }, [open]);
+  const links: { href: string; label: string; kind: "anchor" | "page" }[] = [
+    { href: "/#features", label: "Features", kind: "anchor" },
+    { href: "/#how-it-works", label: "How it works", kind: "anchor" },
+    { href: "/#pricing", label: "Pricing", kind: "anchor" },
+    { href: "/items", label: "Items", kind: "page" },
+    { href: "/subscriptions", label: "Subscriptions", kind: "page" },
+    { href: "/dashboard", label: "Dashboard", kind: "page" },
+  ];
+
+  const isActive = (href: string, kind: "anchor" | "page") => {
+    if (kind === "anchor") return false; // don't try to "active" hash links
+    return pathname === href || pathname.startsWith(href + "/");
+  };
 
   return (
-    <header className="sticky top-0 z-40 border-b border-white/10 bg-black/50 backdrop-blur supports-[backdrop-filter]:bg-black/40">
-      <div className="mx-auto flex h-16 max-w-6xl items-center justify-between px-4">
-        <Link href="/" className="inline-flex items-center gap-2">
-          <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/10">N</span>
-          <span className="font-semibold tracking-tight">Needix</span>
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 backdrop-blur-md">
+      <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
+        {/* Left: Brand */}
+        <Link href="/" className="font-semibold tracking-tight">
+          Needix
         </Link>
 
-        {/* Desktop nav */}
-        <nav className="hidden items-center gap-8 text-sm text-white/80 md:flex">
-          <Link href="/how-it-works" className="hover:text-white">How it works</Link>
-          <Link href="/pricing" className="hover:text-white">Pricing</Link>
-          <Link
-            href="/dashboard"
-            className="inline-flex items-center rounded-xl bg-white px-4 py-2 text-sm font-medium text-gray-900 shadow hover:opacity-90 active:opacity-80 transition"
-          >
-            Manage subscriptions
-          </Link>
+        {/* Center: Nav */}
+        <nav className="hidden gap-5 text-sm md:flex">
+          {links.map((l) => (
+            <Link
+              key={l.href}
+              href={l.href}
+              className={`transition hover:text-white ${
+                isActive(l.href, l.kind) ? "text-white" : "text-white/70"
+              }`}
+            >
+              {l.label}
+            </Link>
+          ))}
         </nav>
 
-        {/* Mobile hamburger */}
-        <button
-          onClick={() => setOpen(true)}
-          className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/5"
-          aria-label="Open menu"
-        >
-          <span className="block h-0.5 w-5 bg-white" />
-        </button>
+        {/* Right: Auth */}
+        <div className="flex items-center gap-3">
+          <UserButton />
+          {/* If you don't have UserButton, use:
+          <Link
+            href="/signin"
+            className="rounded-xl border border-white/20 px-3 py-1.5 text-sm hover:bg-white/5"
+          >
+            Sign in
+          </Link> */}
+        </div>
       </div>
-
-      {/* Drawer + Overlay */}
-      {open && (
-        <>
-          {/* Overlay */}
-          <button
-            aria-label="Close menu overlay"
-            className="fixed inset-0 z-40 bg-black/60"
-            onClick={() => setOpen(false)}
-          />
-          {/* Drawer panel */}
-          <div className="fixed right-0 top-0 z-50 h-full w-80 max-w-[80%] border-l border-white/10 bg-[#0b0f1a] p-6 shadow-2xl">
-            <div className="flex items-center justify-between">
-              <div className="inline-flex items-center gap-2">
-                <span className="inline-flex h-6 w-6 items-center justify-center rounded-md bg-white/10">N</span>
-                <span className="font-semibold tracking-tight">Needix</span>
-              </div>
-              <button
-                onClick={() => setOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/15 bg-white/5"
-                aria-label="Close menu"
-              >
-                ✕
-              </button>
-            </div>
-
-            <nav className="mt-8 grid gap-4 text-sm">
-              <Link href="/how-it-works" className="rounded-lg px-2 py-2 hover:bg-white/5" onClick={() => setOpen(false)}>
-                How it works
-              </Link>
-              <Link href="/pricing" className="rounded-lg px-2 py-2 hover:bg-white/5" onClick={() => setOpen(false)}>
-                Pricing
-              </Link>
-              <Link
-                href="/dashboard"
-                className="mt-2 inline-flex items-center justify-center rounded-xl bg-white px-4 py-2 text-gray-900 font-medium shadow hover:opacity-90 active:opacity-80 transition"
-                onClick={() => setOpen(false)}
-              >
-                Manage subscriptions
-              </Link>
-            </nav>
-
-            <div className="mt-10 border-t border-white/10 pt-6 text-xs text-white/60">
-              Support: <a className="underline" href="mailto:hello@needix.app">hello@needix.app</a>
-            </div>
-          </div>
-        </>
-      )}
     </header>
   );
 }
