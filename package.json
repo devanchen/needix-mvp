@@ -3,10 +3,14 @@
   "version": "0.1.0",
   "private": true,
   "scripts": {
-    "audit:ci": "npm audit --audit-level=moderate",
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "prebuild": "prisma generate",
+    "postinstall": "prisma generate",
+    "prisma:generate": "prisma generate",
+    "prisma:migrate:deploy": "prisma migrate deploy",
+    "audit:ci": "npm audit --audit-level=moderate",
     "lint": "next lint || echo \"skip lint\""
   },
   "dependencies": {
