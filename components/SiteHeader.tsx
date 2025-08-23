@@ -5,7 +5,7 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import UserButton from "./UserButton"; // if you don't have this, use the commented <Link> below
+import UserButton from "./UserButton"; // if you don't have this, swap with a <Link href="/signin">Sign in</Link>
 
 export default function SiteHeader() {
   const pathname = usePathname() || "/";
@@ -13,13 +13,12 @@ export default function SiteHeader() {
 
   // Lock body scroll when the drawer is open
   useEffect(() => {
-    if (open) {
-      const prev = document.body.style.overflow;
-      document.body.style.overflow = "hidden";
-      return () => {
-        document.body.style.overflow = prev;
-      };
-    }
+    if (!open) return;
+    const prev = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    return () => {
+      document.body.style.overflow = prev;
+    };
   }, [open]);
 
   // Close with Escape
@@ -51,7 +50,7 @@ export default function SiteHeader() {
   };
 
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/70 backdrop-blur-md">
+    <header className="sticky top-0 z-[50] border-b border-white/10 bg-black/80 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         {/* Brand */}
         <Link href="/" className="font-semibold tracking-tight">
@@ -101,22 +100,22 @@ export default function SiteHeader() {
       {/* Mobile overlay + drawer */}
       {open && (
         <>
-          {/* Dark backdrop for contrast */}
+          {/* Solid dark backdrop for contrast */}
           <button
             aria-label="Close menu"
             onClick={() => setOpen(false)}
-            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-[2px] md:hidden"
+            className="fixed inset-0 z-[65] bg-black/80 md:hidden"
           />
 
-          {/* Right-side drawer */}
-          <div className="fixed inset-y-0 right-0 z-50 w-[85%] max-w-80 bg-neutral-950 text-white shadow-2xl border-l border-white/10 md:hidden">
+          {/* Right-side drawer (above header to avoid overlap) */}
+          <div className="fixed top-0 right-0 z-[70] h-full w-[85%] max-w-80 overflow-y-auto border-l border-white/10 bg-black text-white shadow-2xl md:hidden">
             {/* Drawer header */}
             <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <span className="font-semibold">Menu</span>
               <button
                 aria-label="Close menu"
                 onClick={() => setOpen(false)}
-                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 hover:bg-white/5"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 hover:bg-white/10"
               >
                 <X size={20} />
               </button>
@@ -128,7 +127,7 @@ export default function SiteHeader() {
               {/* Or:
               <Link
                 href="/signin"
-                className="inline-flex rounded-xl border border-white/20 px-3 py-2 text-sm hover:bg-white/5"
+                className="inline-flex rounded-xl border border-white/20 px-3 py-2 text-sm hover:bg-white/10"
               >
                 Sign in
               </Link> */}
@@ -141,11 +140,11 @@ export default function SiteHeader() {
                   key={l.href}
                   href={l.href}
                   onClick={() => setOpen(false)}
-                  className={`block rounded-lg px-3 py-2.5 text-base leading-6 transition
+                  className={`block rounded-lg px-3 py-3 text-[15px] font-medium leading-6 transition
                     ${
                       isActive(l.href, l.kind)
-                        ? "bg-white/10 text-white"
-                        : "text-white/85 hover:bg-white/5 hover:text-white"
+                        ? "bg-white text-gray-900"
+                        : "text-white hover:bg-white/10"
                     }`}
                 >
                   {l.label}

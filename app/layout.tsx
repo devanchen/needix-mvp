@@ -4,7 +4,8 @@ import type { Metadata } from "next";
 import SiteHeader from "../components/SiteHeader";
 import SiteFooter from "../components/SiteFooter";
 import StickyCTA from "../components/StickyCTA";
-import AuthProvider from "../components/AuthProvider"; // use relative import to avoid alias hiccups
+import AuthProvider from "../components/AuthProvider"; // keep relative import
+import FabDashboard from "../components/FabDashboard"; // ✅ NEW
 
 // Prefer setting NEXT_PUBLIC_SITE_URL in your env (e.g. https://needix.app)
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -84,7 +85,6 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           {/* JSON-LD for search engines */}
           <script
             type="application/ld+json"
-            // avoid React complaining if SSR/client differ
             suppressHydrationWarning
             dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
           />
@@ -95,6 +95,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
 
           <SiteFooter />
           <StickyCTA heroCtaId="" />
+          <FabDashboard /> {/* ✅ persistent Dashboard FAB */}
 
           {/* Background accents */}
           <div className="pointer-events-none fixed inset-0 -z-10">
