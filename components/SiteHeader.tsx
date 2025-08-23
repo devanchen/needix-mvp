@@ -5,19 +5,44 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { useEffect, useState } from "react";
 import { Menu, X } from "lucide-react";
-import UserButton from "./UserButton"; // or swap with a <Link href="/signin">Sign in</Link>
+import UserButton from "./UserButton"; // if you don't have this, use the commented <Link> below
 
 export default function SiteHeader() {
   const pathname = usePathname() || "/";
   const [open, setOpen] = useState(false);
 
-  const links: { href: string; label: string; kind: "anchor" | "page" }[] = [
-    { href: "/#features", label: "Features", kind: "anchor" },
-    { href: "/#how-it-works", label: "How it works", kind: "anchor" },
-    { href: "/#pricing", label: "Pricing", kind: "anchor" },
-    { href: "/items", label: "Items", kind: "page" },
-    { href: "/subscriptions", label: "Subscriptions", kind: "page" },
-    { href: "/dashboard", label: "Dashboard", kind: "page" },
+  // Lock body scroll when the drawer is open
+  useEffect(() => {
+    if (open) {
+      const prev = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      return () => {
+        document.body.style.overflow = prev;
+      };
+    }
+  }, [open]);
+
+  // Close with Escape
+  useEffect(() => {
+    function onKey(e: KeyboardEvent) {
+      if (e.key === "Escape") setOpen(false);
+    }
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
+  // Close when route changes
+  useEffect(() => {
+    setOpen(false);
+  }, [pathname]);
+
+  const links = [
+    { href: "/#features", label: "Features", kind: "anchor" as const },
+    { href: "/#how-it-works", label: "How it works", kind: "anchor" as const },
+    { href: "/#pricing", label: "Pricing", kind: "anchor" as const },
+    { href: "/items", label: "Items", kind: "page" as const },
+    { href: "/subscriptions", label: "Subscriptions", kind: "page" as const },
+    { href: "/dashboard", label: "Dashboard", kind: "page" as const },
   ];
 
   const isActive = (href: string, kind: "anchor" | "page") => {
@@ -25,13 +50,8 @@ export default function SiteHeader() {
     return pathname === href || pathname.startsWith(href + "/");
   };
 
-  // Close the mobile menu when route changes
-  useEffect(() => {
-    setOpen(false);
-  }, [pathname]);
-
   return (
-    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/60 backdrop-blur-md">
+    <header className="sticky top-0 z-50 border-b border-white/10 bg-black/70 backdrop-blur-md">
       <div className="mx-auto flex h-14 max-w-6xl items-center justify-between px-4">
         {/* Brand */}
         <Link href="/" className="font-semibold tracking-tight">
@@ -58,51 +78,75 @@ export default function SiteHeader() {
           {/* Desktop auth */}
           <div className="hidden md:block">
             <UserButton />
+            {/* If you don't have UserButton, use:
+            <Link
+              href="/signin"
+              className="rounded-xl border border-white/20 px-3 py-1.5 text-sm hover:bg-white/5"
+            >
+              Sign in
+            </Link> */}
           </div>
+
           {/* Mobile menu button */}
           <button
             aria-label="Open menu"
             onClick={() => setOpen(true)}
-            className="md:hidden inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 hover:bg-white/5"
+            className="md:hidden inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 text-white hover:bg-white/5"
           >
-            <Menu size={18} />
+            <Menu size={20} />
           </button>
         </div>
       </div>
 
-      {/* Mobile sheet */}
+      {/* Mobile overlay + drawer */}
       {open && (
         <>
-          <div
-            className="fixed inset-0 z-40 bg-black/60 md:hidden"
+          {/* Dark backdrop for contrast */}
+          <button
+            aria-label="Close menu"
             onClick={() => setOpen(false)}
+            className="fixed inset-0 z-40 bg-black/70 backdrop-blur-[2px] md:hidden"
           />
-          <div className="fixed inset-y-0 right-0 z-50 w-80 max-w-[85%] transform bg-black/95 p-4 shadow-2xl md:hidden">
-            <div className="mb-2 flex items-center justify-between">
+
+          {/* Right-side drawer */}
+          <div className="fixed inset-y-0 right-0 z-50 w-[85%] max-w-80 bg-neutral-950 text-white shadow-2xl border-l border-white/10 md:hidden">
+            {/* Drawer header */}
+            <div className="flex items-center justify-between px-4 py-3 border-b border-white/10">
               <span className="font-semibold">Menu</span>
               <button
                 aria-label="Close menu"
                 onClick={() => setOpen(false)}
-                className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-white/20 hover:bg-white/5"
+                className="inline-flex h-10 w-10 items-center justify-center rounded-lg border border-white/20 hover:bg-white/5"
               >
-                <X size={18} />
+                <X size={20} />
               </button>
             </div>
 
-            {/* Auth on mobile */}
-            <div className="mb-4">
+            {/* Auth (mobile) */}
+            <div className="px-4 py-3 border-b border-white/10">
               <UserButton />
+              {/* Or:
+              <Link
+                href="/signin"
+                className="inline-flex rounded-xl border border-white/20 px-3 py-2 text-sm hover:bg-white/5"
+              >
+                Sign in
+              </Link> */}
             </div>
 
-            <nav className="grid gap-1">
+            {/* Links */}
+            <nav className="px-2 py-2">
               {links.map((l) => (
                 <Link
                   key={l.href}
                   href={l.href}
                   onClick={() => setOpen(false)}
-                  className={`rounded-lg px-3 py-2 text-sm transition hover:bg-white/5 ${
-                    isActive(l.href, l.kind) ? "text-white" : "text-white/80"
-                  }`}
+                  className={`block rounded-lg px-3 py-2.5 text-base leading-6 transition
+                    ${
+                      isActive(l.href, l.kind)
+                        ? "bg-white/10 text-white"
+                        : "text-white/85 hover:bg-white/5 hover:text-white"
+                    }`}
                 >
                   {l.label}
                 </Link>
