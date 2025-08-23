@@ -43,21 +43,23 @@ export default function HomePage() {
                     auto-cancel free trials, and see every subscription fee in one dashboard. Cancel anytime.
                   </p>
 
-                  <div id="hero-cta" className="mt-6 flex flex-col items-center gap-3 sm:flex-row md:items-start">
+                  <div className="mt-6 flex flex-col items-center gap-3 sm:flex-row md:items-start">
                     <Link
                       href="/pricing"
-                      onClick={() => (window as any).gtag?.("event","cta_click",{ label:"hero_start_plan" })}
-                      className="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 font-medium text-gray-900 shadow hover:opacity-90 transition"
+                      onClick={() => (window as any)?.va?.track?.("cta_hero_start_plan")}
+                      className="inline-flex items-center justify-center rounded-xl bg-white px-6 py-3 font-medium text-gray-900 shadow hover:opacity-90 active:opacity-80 transition"
                     >
                       Start your plan
                     </Link>
                     <Link
-                      href="#how-it-works"
+                      href="/how-it-works"
+                      onClick={() => (window as any)?.va?.track?.("cta_hero_see_how")}
                       className="inline-flex items-center justify-center rounded-xl border border-white/20 px-6 py-3 font-medium text-white hover:bg-white/5 active:bg-white/10 transition"
                     >
                       See how it works
                     </Link>
                   </div>
+
 
                   {/* Trust badges under buttons */}
                   <div className="mt-4 flex flex-wrap items-center justify-center gap-3 text-xs text-white/70 md:justify-start">
@@ -274,31 +276,62 @@ export default function HomePage() {
         {/* PRICING */}
         <section className="py-14" id="pricing">
           <div className="grid gap-6 md:grid-cols-2">
-            <div id="plan-membership" className="relative rounded-2xl border border-white/10 bg-white p-6 text-gray-900 shadow-lg">
-              <div className="absolute -top-3 left-6 rounded-full bg-amber-500 px-2 py-1 text-xs font-semibold text-white shadow">Most popular</div>
+            <div
+              id="plan-membership"
+              className="relative rounded-2xl border border-white/10 bg-white p-6 text-gray-900 shadow-lg"
+            >
+              <div className="absolute -top-3 left-6 rounded-full bg-amber-500 px-2 py-1 text-xs font-semibold text-white shadow">
+                Most popular
+              </div>
               <div className="text-sm font-semibold">Membership</div>
-              <div className="mt-2 text-4xl font-extrabold">$7<span className="text-base font-medium">/mo</span></div>
+              <div className="mt-2 text-4xl font-extrabold">
+                $7<span className="text-base font-medium">/mo</span>
+              </div>
               <ul className="mt-4 list-disc pl-5 text-sm">
                 <li>Unlimited automated orders</li>
                 <li>Subscription tracking + reminders</li>
                 <li>Loyalty rewards & freebies</li>
                 <li>Cancel anytime</li>
               </ul>
-              <Link href="/pricing" onClick={() => (window as any).gtag?.("event","cta_click",{ label:"pricing_membership" })} className="mt-6 inline-flex w/full items-center justify-center rounded-xl bg-gray-900 px-5 py-3 font-medium text-white hover:opacity-90 transition">
+              <Link
+                href="/pricing"
+                onClick={() => {
+                  (window as any)?.va?.track?.("cta_pricing_start_membership");
+                  (window as any)?.gtag?.("event", "cta_click", { label: "pricing_membership" });
+                }}
+                className="mt-6 inline-flex w-full items-center justify-center rounded-xl bg-gray-900 px-5 py-3 font-medium text-white hover:opacity-90 transition"
+              >
                 Start Membership
               </Link>
-              <button onClick={() => setFeesOpen(true)} className="mt-3 text-left text-xs underline underline-offset-2">What fees cover</button>
+              <button
+                onClick={() => setFeesOpen(true)}
+                className="mt-3 text-left text-xs underline underline-offset-2"
+              >
+                What fees cover
+              </button>
             </div>
 
-            <div id="plan-payg" className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/20">
-              <div className="text-sm font-semibold">Pay‑as‑you‑go</div>
-              <div className="mt-2 text-4xl font-extrabold">3%<span className="text-base font-medium text-white/80"> per order</span></div>
+            <div
+              id="plan-payg"
+              className="rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg shadow-black/20"
+            >
+              <div className="text-sm font-semibold">Pay-as-you-go</div>
+              <div className="mt-2 text-4xl font-extrabold">
+                3%<span className="text-base font-medium text-white/80"> per order</span>
+              </div>
               <ul className="mt-4 list-disc pl-5 text-sm text-white/80">
                 <li>No monthly fee</li>
                 <li>Full dashboard access</li>
                 <li>Cancel anytime</li>
               </ul>
-              <Link href="/pricing" onClick={() => (window as any).gtag?.("event","cta_click",{ label:"pricing_payg" })} className="mt-6 inline-flex w/full items-center justify-center rounded-xl border border-white/20 px-5 py-3 font-medium hover:bg-white/5 transition">
+              <Link
+                href="/pricing"
+                onClick={() => {
+                  (window as any)?.va?.track?.("cta_pricing_compare_plans");
+                  (window as any)?.gtag?.("event", "cta_click", { label: "pricing_payg" });
+                }}
+                className="mt-6 inline-flex w-full items-center justify-center rounded-xl border border-white/20 px-5 py-3 font-medium hover:bg-white/5 transition"
+              >
                 Compare plans
               </Link>
             </div>
@@ -366,12 +399,28 @@ export default function HomePage() {
           <section className="py-14">
             <div className="rounded-2xl border border-white/10 bg-white p-8 text-center text-gray-900 shadow-lg">
               <h3 className="text-2xl font-bold">Ready to never run out again?</h3>
-              <p className="mt-2 text-gray-700">Auto‑reorders for essentials + subscription tracking in one place.</p>
+              <p className="mt-2 text-gray-700">
+                Auto-reorders for essentials + subscription tracking in one place.
+              </p>
               <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link href="/pricing" onClick={() => (window as any).gtag?.("event","cta_click",{ label:"final_start_plan" })} className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-6 py-3 font-medium text-white hover:opacity-90 transition">
+                <Link
+                  href="/pricing"
+                  onClick={() => {
+                    (window as any)?.va?.track?.("cta_final_start_plan");
+                    (window as any)?.gtag?.("event", "cta_click", { label: "final_start_plan" });
+                  }}
+                  className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-6 py-3 font-medium text-white hover:opacity-90 transition"
+                >
                   Start your plan
                 </Link>
-                <Link href="#how-it-works" className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-6 py-3 font-medium text-gray-900 hover:bg-gray-50 transition">
+                <Link
+                  href="#how-it-works"
+                  onClick={() => {
+                    (window as any)?.va?.track?.("cta_final_learn_more");
+                    (window as any)?.gtag?.("event", "cta_click", { label: "final_learn_more" });
+                  }}
+                  className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-6 py-3 font-medium text-gray-900 hover:bg-gray-50 transition"
+                >
                   Learn more
                 </Link>
               </div>
