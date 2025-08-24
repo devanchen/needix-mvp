@@ -18,13 +18,11 @@ async function getDbUserId() {
   if (!session?.user) return { userId: null, session };
   const email = (session.user.email ?? "").toLowerCase().trim();
 
-  // Try by id first
   if (session.user.id) {
     const byId = await prisma.user.findUnique({ where: { id: session.user.id as string } });
     if (byId) return { userId: byId.id, session };
   }
 
-  // Fallback by email (create if missing)
   if (email) {
     const user = await prisma.user.upsert({
       where: { email },
@@ -34,7 +32,6 @@ async function getDbUserId() {
     return { userId: user.id, session };
   }
 
-  // Last resort — create a placeholder user
   const user = await prisma.user.create({
     data: { email: `user_${Date.now()}@example.com`, name: session.user.name ?? "User" },
   });
@@ -56,14 +53,20 @@ function toDTO(s: any) {
   };
 }
 
-export async function PUT(req: Request, ctx: { params: { id: string } }) {
-  const { id } = ctx.params;
+// Support Next 15's async params (and older sync) without typing the arg
+async function getParams(ctx: any) {
+  const p = ctx?.params;
+  return p && typeof p.then === "function" ? await p : p;
+}
+
+export async function PUT(req: Request, ctx: any) {
+  const { id } = (await getParams(ctx)) ?? {};
   const { userId, session } = await getDbUserId();
   if (!session?.user || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
   const raw = (await req.json()) as Body;
 
-  // Build update data only with provided keys
   const data: any = {};
   if (raw.service !== undefined) data.service = String(raw.service).trim();
   if (raw.plan !== undefined) data.plan = raw.plan ? String(raw.plan).trim() : null;
@@ -79,7 +82,6 @@ export async function PUT(req: Request, ctx: { params: { id: string } }) {
     else data.nextDate = new Date(raw.nextDate); // expects YYYY-MM-DD
   }
 
-  // Ownership check
   const existing = await prisma.subscription.findFirst({ where: { id, userId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
@@ -87,12 +89,12 @@ export async function PUT(req: Request, ctx: { params: { id: string } }) {
   return NextResponse.json(toDTO(updated), { status: 200 });
 }
 
-export async function DELETE(_req: Request, ctx: { params: { id: string } }) {
-  const { id } = ctx.params;
+export async function DELETE(_req: Request, ctx: any) {
+  const { id } = (await getParams(ctx)) ?? {};
   const { userId, session } = await getDbUserId();
   if (!session?.user || !userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 });
 
-  // Ownership check
   const existing = await prisma.subscription.findFirst({ where: { id, userId } });
   if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 });
 
