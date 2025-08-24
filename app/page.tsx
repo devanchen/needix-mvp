@@ -7,12 +7,17 @@ import Header from "../components/Header";
 import StickyCTA from "../components/StickyCTA";
 import Modal from "../components/Modal";
 import CheckBadge from "../components/CheckBadge";
+import FinalCta from "@/components/cta/FinalCta";
+
+
 import SiteFooter from "../components/SiteFooter";
 
 import {
   LayoutDashboard, ShieldAlert, Clock4, Pause, Gift, Mail,
   ShoppingCart, CreditCard, ReceiptText, TrendingUp
 } from "lucide-react";
+import CtaBadge from "@/components/cta/CtaBadge";
+import BadgeStrip from "@/components/marketing/BadgeStrip";
 
 export default function HomePage() {
   const [feesOpen, setFeesOpen] = useState(false);
@@ -69,7 +74,7 @@ export default function HomePage() {
                   </div>
                 </div>
               </Reveal>
-
+            
               {/* Right preview card */}
               <Reveal delay={120}>
                 <aside className="mx-auto w-full max-w-md rounded-2xl border border-white/10 bg-white/5 p-6 shadow-lg backdrop-blur-sm md:mx-0">
@@ -396,42 +401,9 @@ export default function HomePage() {
 
         {/* FINAL CTA */}
         <Reveal>
-          <section className="py-14">
-            <div className="rounded-2xl border border-white/10 bg-white p-8 text-center text-gray-900 shadow-lg">
-              <h3 className="text-2xl font-bold">Ready to never run out again?</h3>
-              <p className="mt-2 text-gray-700">
-                Auto-reorders for essentials + subscription tracking in one place.
-              </p>
-              <div className="mt-6 flex flex-col items-center justify-center gap-3 sm:flex-row">
-                <Link
-                  href="/pricing"
-                  onClick={() => {
-                    (window as any)?.va?.track?.("cta_final_start_plan");
-                    (window as any)?.gtag?.("event", "cta_click", { label: "final_start_plan" });
-                  }}
-                  className="inline-flex items-center justify-center rounded-xl bg-gray-900 px-6 py-3 font-medium text-white hover:opacity-90 transition"
-                >
-                  Start your plan
-                </Link>
-                <Link
-                  href="#how-it-works"
-                  onClick={() => {
-                    (window as any)?.va?.track?.("cta_final_learn_more");
-                    (window as any)?.gtag?.("event", "cta_click", { label: "final_learn_more" });
-                  }}
-                  className="inline-flex items-center justify-center rounded-xl border border-gray-300 px-6 py-3 font-medium text-gray-900 hover:bg-gray-50 transition"
-                >
-                  Learn more
-                </Link>
-              </div>
-            </div>
-          </section>
+          <FinalCta />
         </Reveal>
       </main>
-
-      
-
-
     </>
   );
 }

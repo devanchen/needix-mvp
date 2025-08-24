@@ -6,6 +6,7 @@ import SiteFooter from "../components/SiteFooter";
 import StickyCTA from "../components/StickyCTA";
 import AuthProvider from "../components/AuthProvider"; // keep relative import
 import FabDashboard from "../components/FabDashboard"; // ✅ NEW
+import Toaster from "@/components/ui/Toaster";
 
 // Prefer setting NEXT_PUBLIC_SITE_URL in your env (e.g. https://needix.app)
 const siteUrl = process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
@@ -103,6 +104,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
             <div className="absolute top-40 -right-40 h-[28rem] w-[28rem] rounded-full bg-[radial-gradient(circle,rgba(239,68,68,0.10),transparent_60%)] blur-2xl" />
           </div>
         </AuthProvider>
+        <Toaster />
       </body>
     </html>
   );
