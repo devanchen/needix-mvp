@@ -5,43 +5,64 @@ import Credentials from "next-auth/providers/credentials";
 import { PrismaAdapter } from "@auth/prisma-adapter";
 import { prisma } from "./lib/prisma";
 
-// Use JWT sessions so middleware doesn't need Prisma
 export const { handlers, auth, signIn, signOut } = NextAuth({
   adapter: PrismaAdapter(prisma),
-  session: { strategy: "jwt" },          // <-- key change
+  session: { strategy: "jwt" },
   secret: process.env.AUTH_SECRET,
-  // If you're behind Vercel proxy, this env also helps:
-  // Set AUTH_TRUST_HOST=1 in your env vars
+  // If you’re on Vercel, also set AUTH_TRUST_HOST=1 in env
 
   providers: [
+    // GitHub OAuth (optional—only shows if env vars exist)
     GitHub({
       clientId: process.env.GITHUB_ID ?? "",
       clientSecret: process.env.GITHUB_SECRET ?? "",
       allowDangerousEmailAccountLinking: true,
     }),
-    Credentials({
-      name: "Demo",
-      credentials: { email: { label: "Email", type: "email" } },
-      async authorize(creds) {
-        if (process.env.AUTH_ALLOW_DEMO !== "1") return null;
-        const email = String(creds?.email || "").toLowerCase();
-        if (!email || !/^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email)) return null;
 
-        // Create or find the user in Prisma
-        const user = await prisma.user.upsert({
-          where: { email },
-          update: {},
-          create: { email, name: "Demo User" },
-        });
-        return user;
+    // Demo credentials (for local testing / quick sign-in)
+    Credentials({
+      id: "credentials",
+      name: "Demo",
+      credentials: {
+        email: { label: "Email", type: "email" },
+        password: { label: "Password", type: "password" },
+      },
+      async authorize(creds) {
+        const email = (creds?.email || "").toString().trim().toLowerCase();
+        const password = (creds?.password || "").toString();
+
+        const demoEmail = process.env.DEMO_EMAIL || "demo@needix.app";
+        const demoPassword = process.env.DEMO_PASSWORD || "demo";
+
+        if (email === demoEmail && password === demoPassword) {
+          // Ensure a real DB user exists for this email
+          const user = await prisma.user.upsert({
+            where: { email },
+            update: { name: "Demo User" },
+            create: { email, name: "Demo User" },
+          });
+
+          // Return the DB-backed user id so foreign keys work
+          return {
+            id: user.id,
+            email: user.email,
+            name: user.name ?? "Demo User",
+          };
+        }
+
+        // Invalid demo creds
+        return null;
       },
     }),
   ],
 
-  // Optional: add the user id to the JWT & session object
+  pages: {
+    signIn: "/signin", // use our custom page
+  },
+
   callbacks: {
     async jwt({ token, user }) {
-      if (user) token.uid = (user as any).id;
+      if (user) token.uid = (user as any).id ?? token.sub;
       return token;
     },
     async session({ session, token }) {

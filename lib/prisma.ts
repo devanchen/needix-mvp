@@ -1,14 +1,16 @@
+// lib/prisma.ts
 import { PrismaClient } from "@prisma/client";
 
-declare global {
-  // eslint-disable-next-line no-var
-  var prisma: PrismaClient | undefined;
-}
+// Pick pooled first; fall back to direct if needed
+const datasourceUrl = process.env.DATABASE_URL || process.env.DATABASE_URL_UNPOOLED;
+
+const globalForPrisma = global as unknown as { prisma?: PrismaClient };
 
 export const prisma =
-  global.prisma ??
+  globalForPrisma.prisma ??
   new PrismaClient({
-    log: process.env.NODE_ENV === "development" ? ["query", "warn", "error"] : ["error"],
+    datasourceUrl,
+    log: ["error", "warn"],
   });
 
-if (process.env.NODE_ENV !== "production") global.prisma = prisma;
+if (process.env.NODE_ENV !== "production") globalForPrisma.prisma = prisma;
