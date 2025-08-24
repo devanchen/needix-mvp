@@ -26,11 +26,17 @@ export type SubscriptionDTO = {
   service: string;
   plan: string | null;
   manageUrl: string | null;
-  price: number | null;       // <- number, not Decimal
+  price: number | null;       // number, not Decimal
   nextDate: string | null;    // ISO string or null
   createdAt: string;          // ISO
   updatedAt: string;          // ISO
 };
+
+function atStartOfDay(date: Date) {
+  const d = new Date(date);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
 
 export default async function SubscriptionsPage({
   // Next 15: searchParams is async
@@ -82,7 +88,7 @@ export default async function SubscriptionsPage({
       service: s.service,
       plan: s.plan,
       manageUrl: s.manageUrl,
-      price: s.price === null ? null : Number(s.price), // Decimal -> number
+      price: s.price === null ? null : Number(s.price),
       nextDate: s.nextDate ? s.nextDate.toISOString() : null,
       createdAt: s.createdAt.toISOString(),
       updatedAt: s.updatedAt.toISOString(),
@@ -93,6 +99,30 @@ export default async function SubscriptionsPage({
   }
 
   const hasSubs = subs.length > 0;
+
+  // Derive summary metrics
+  const today = atStartOfDay(new Date());
+  const in30 = new Date(today);
+  in30.setDate(in30.getDate() + 30);
+
+  const totalSubs = subs.length;
+  const monthlyTotal = subs.reduce((sum, s) => sum + (s.price ?? 0), 0);
+  const dueNext30 = subs.filter((s) => {
+    if (!s.nextDate) return false;
+    const d = atStartOfDay(new Date(s.nextDate));
+    return d >= today && d <= in30;
+  }).length;
+  const overdue = subs.filter((s) => {
+    if (!s.nextDate) return false;
+    const d = atStartOfDay(new Date(s.nextDate));
+    return d < today;
+  }).length;
+
+  const fmtCurrency = new Intl.NumberFormat("en-US", {
+    style: "currency",
+    currency: "USD",
+    maximumFractionDigits: 2,
+  });
 
   // Handle ?add=1
   const sp = (await searchParams) ?? undefined;
@@ -106,6 +136,28 @@ export default async function SubscriptionsPage({
       <p className="mt-2 text-white/70">
         Keep online subscriptions in one place. We’ll surface upcoming renewals.
       </p>
+
+      {/* Summary cards */}
+      {hasSubs && (
+        <section className="mt-6 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-xs uppercase tracking-wide text-white/60">Total subscriptions</div>
+            <div className="mt-1 text-2xl font-semibold">{totalSubs}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-xs uppercase tracking-wide text-white/60">Monthly total</div>
+            <div className="mt-1 text-2xl font-semibold">{fmtCurrency.format(monthlyTotal)}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-xs uppercase tracking-wide text-white/60">Due in next 30 days</div>
+            <div className="mt-1 text-2xl font-semibold">{dueNext30}</div>
+          </div>
+          <div className="rounded-2xl border border-white/10 bg-white/5 p-4">
+            <div className="text-xs uppercase tracking-wide text-white/60">Overdue</div>
+            <div className={`mt-1 text-2xl font-semibold ${overdue > 0 ? "text-red-300" : ""}`}>{overdue}</div>
+          </div>
+        </section>
+      )}
 
       {loadError && (
         <div className="mt-4 rounded-xl border border-red-500/30 bg-red-500/10 p-4 text-sm text-red-200">

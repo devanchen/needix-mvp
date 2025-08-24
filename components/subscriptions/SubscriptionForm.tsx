@@ -1,3 +1,4 @@
+// components/subscriptions/SubscriptionForm.tsx
 "use client";
 
 import { useRef, useState } from "react";
@@ -18,37 +19,63 @@ export default function SubscriptionForm() {
   });
   const [loading, setLoading] = useState(false);
 
-  // Block past dates
-  const today = new Date().toISOString().slice(0, 10); // YYYY-MM-DD
+  // block past dates
+  const today = new Date().toISOString().slice(0, 10);
 
   async function onSubmit(e: React.FormEvent) {
     e.preventDefault();
     if (loading) return;
+
+    // ---- Optimistic row ----
+    const tempId = `temp_${Date.now()}`;
+    const optimistic = {
+      id: tempId,
+      userId: "local",
+      service: form.service.trim(),
+      plan: form.plan.trim() || null,
+      manageUrl: form.manageUrl.trim() || null,
+      price: form.price.trim() === "" ? null : Number(form.price),
+      nextDate: form.nextDate ? new Date(form.nextDate).toISOString() : null,
+      createdAt: new Date().toISOString(),
+      updatedAt: new Date().toISOString(),
+      __optimistic: true as const,
+    };
+
+    // Fire a global event so the list can insert immediately
+    if (optimistic.service) {
+      window.dispatchEvent(new CustomEvent("sub:created", { detail: optimistic }));
+    }
+
     setLoading(true);
     try {
       const res = await fetch("/api/subscriptions", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          service: form.service.trim(),
-          plan: form.plan.trim() || null,
-          manageUrl: form.manageUrl.trim() || null,
-          price: form.price ? Number(form.price) : null,
-          nextDate: form.nextDate || null,
+          service: optimistic.service,
+          plan: optimistic.plan,
+          manageUrl: optimistic.manageUrl,
+          price: optimistic.price,
+          nextDate: form.nextDate || null, // YYYY-MM-DD
         }),
       });
 
       if (!res.ok) {
+        // revert the optimistic row
+        window.dispatchEvent(new CustomEvent("sub:revert", { detail: { tempId } }));
         console.error("Failed to create subscription:", await res.text());
+        showToast("Failed to add subscription");
         return;
       }
 
-      // analytics + toast
-      (window as any)?.va?.track?.("subscription_add");
-      (window as any)?.gtag?.("event", "subscription_add", { service: form.service });
-      showToast("Subscription added");
+      const real = await res.json();
+      // replace temp row with real row from the server
+      window.dispatchEvent(new CustomEvent("sub:replace", { detail: { tempId, row: real } }));
 
+      showToast("Subscription added");
       setForm({ service: "", plan: "", manageUrl: "", price: "", nextDate: "" });
+
+      // Refresh to update summary cards / totals in the page header
       router.refresh();
     } finally {
       setLoading(false);
@@ -110,7 +137,7 @@ export default function SubscriptionForm() {
         <button
           type="button"
           aria-label="Open date picker"
-          onClick={() => dateRef.current?.showPicker?.() ?? dateRef.current?.focus()}
+          onClick={() => dateRef.current?.showPicker?.()}
           className="absolute right-2 top-1/2 -translate-y-1/2 rounded-md p-1 hover:bg-white/10 focus-visible:outline-none"
           tabIndex={-1}
         >
