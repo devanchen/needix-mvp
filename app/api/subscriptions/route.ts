@@ -1,12 +1,9 @@
-// app/api/subscriptions/[id]/route.ts
+// app/api/subscriptions/route.ts
 export const runtime = "nodejs";
 
 import { NextResponse } from "next/server";
 import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
-
-// Next.js 15 route context typing
-type Ctx = { params: Promise<{ id: string }> };
 
 function toDTO(s: any) {
   return {
@@ -17,132 +14,94 @@ function toDTO(s: any) {
     manageUrl: s.manageUrl ?? null,
     price: s.price == null ? null : Number(s.price),
     nextDate: s.nextDate ? new Date(s.nextDate).toISOString() : null,
-    intervalDays: typeof (s as any)?.intervalDays === "number" ? (s as any).intervalDays : null,
-    canceled: typeof (s as any)?.canceled === "boolean" ? (s as any).canceled : false,
+    intervalDays: typeof s.intervalDays === "number" ? s.intervalDays : null,
+    canceled: typeof s.canceled === "boolean" ? s.canceled : false,
     createdAt: s.createdAt.toISOString(),
     updatedAt: s.updatedAt.toISOString(),
   };
 }
 
-export async function PUT(req: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
+// GET /api/subscriptions — list current user's subs
+export async function GET() {
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
 
-  const owned = await prisma.subscription.findFirst({ where: { id, userId } });
-  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
+  const rows = await prisma.subscription.findMany({
+    where: { userId },
+    orderBy: [{ nextDate: "asc" }],
+  });
 
-  const body = (await req.json()) as {
-    service?: string | null;
-    plan?: string | null;
-    manageUrl?: string | null;
-    price?: number | null;
-    nextDate?: string | null;
-    intervalDays?: number | null;
-    canceled?: boolean | null;
-  };
-
-  const data: Record<string, any> = {};
-  if (typeof body.service === "string") data.service = body.service.trim();
-  if (body.plan !== undefined) data.plan = body.plan?.trim() || null;
-  if (body.manageUrl !== undefined) data.manageUrl = body.manageUrl?.trim() || null;
-
-  if (body.price !== undefined) {
-    if (body.price === null || Number.isNaN(Number(body.price))) {
-      // omit price
-    } else {
-      data.price = Number(body.price);
-    }
-  }
-
-  if (body.nextDate !== undefined) {
-    if (!body.nextDate) data.nextDate = null;
-    else {
-      const dt = new Date(body.nextDate);
-      if (!Number.isNaN(dt.getTime())) data.nextDate = dt;
-    }
-  }
-
-  if (body.intervalDays !== undefined) {
-    const n = Number(body.intervalDays);
-    data.intervalDays = Number.isFinite(n) && n > 0 ? n : null;
-  }
-
-  if (typeof body.canceled === "boolean") data.canceled = body.canceled;
-
-  const updated = await prisma.subscription.update({ where: { id }, data: data as any });
-  return NextResponse.json(toDTO(updated));
+  return NextResponse.json(rows.map(toDTO));
 }
 
-export async function DELETE(_req: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
+// POST /api/subscriptions — create a sub
+export async function POST(req: Request) {
   const session = await auth();
   const userId = session?.user?.id as string | undefined;
   if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  const uid = userId as string;
 
-  const owned = await prisma.subscription.findFirst({ where: { id, userId } });
-  if (!owned) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  await prisma.subscription.delete({ where: { id } });
-  return NextResponse.json({ ok: true });
-}
-
-// PATCH for small actions: toggle cancel / advance nextDate
-export async function PATCH(req: Request, ctx: Ctx) {
-  const { id } = await ctx.params;
-  const session = await auth();
-  const userId = session?.user?.id as string | undefined;
-  if (!userId) return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
-
-  const sub = await prisma.subscription.findFirst({ where: { id, userId } });
-  if (!sub) return NextResponse.json({ error: "Not found" }, { status: 404 });
-
-  const body = (await req.json().catch(() => ({}))) as
-    | { action: "toggle-cancel" }
-    | { action: "advance"; days?: number };
-
-  if (body?.action === "toggle-cancel") {
-    const currentCanceled = Boolean((sub as any).canceled);
-    const updated = await prisma.subscription.update({
-      where: { id },
-      data: { canceled: !currentCanceled } as any,
-    });
-    return NextResponse.json(toDTO(updated));
-  }
-
-  if (body?.action === "advance") {
-    const base = sub.nextDate ? new Date(sub.nextDate) : new Date();
-    let next = new Date(base);
-
-    const daysArg = typeof (body as any).days === "number" && Number.isFinite((body as any).days)
-      ? (body as any).days
-      : null;
-
-    const intervalRaw = (sub as any).intervalDays;
-    const intervalDays = typeof intervalRaw === "number" && Number.isFinite(intervalRaw) && intervalRaw > 0
-      ? intervalRaw
-      : null;
-
-    if (daysArg && daysArg > 0) {
-      next.setDate(next.getDate() + daysArg);
-    } else if (intervalDays) {
-      next.setDate(next.getDate() + intervalDays);
-    } else {
-      // default: +1 calendar month (clamp to month end if necessary)
-      const keepDay = base.getDate();
-      next.setMonth(base.getMonth() + 1);
-      if (next.getDate() < keepDay) {
-        next = new Date(next.getFullYear(), next.getMonth() + 1, 0);
+  const body = (await req.json().catch(() => null)) as
+    | {
+        service?: string;
+        plan?: string | null;
+        manageUrl?: string | null;
+        price?: number | string | null;
+        nextDate?: string | null; // YYYY-MM-DD or ISO
+        intervalDays?: number | null;
+        canceled?: boolean | null;
       }
-    }
+    | null;
 
-    const updated = await prisma.subscription.update({
-      where: { id },
-      data: { nextDate: next } as any,
-    });
-    return NextResponse.json(toDTO(updated));
+  const service = String(body?.service || "").trim();
+  if (!service) return NextResponse.json({ error: "Service is required" }, { status: 400 });
+
+  const plan =
+    typeof body?.plan === "string" && body.plan.trim() !== "" ? body.plan.trim() : null;
+
+  const manageUrl =
+    typeof body?.manageUrl === "string" && body.manageUrl.trim() !== ""
+      ? body.manageUrl.trim()
+      : null;
+
+  // price: accept number or numeric string; null/empty -> omit
+  let price: number | null = null;
+  if (body?.price !== undefined && body.price !== null && body.price !== "") {
+    const n = Number(body.price);
+    price = Number.isFinite(n) ? n : null;
   }
 
-  return NextResponse.json({ error: "Unknown action" }, { status: 400 });
+  // nextDate: parse YYYY-MM-DD or ISO; empty -> omit
+  let nextDate: Date | null = null;
+  if (typeof body?.nextDate === "string" && body.nextDate.trim() !== "") {
+    const dt = new Date(body.nextDate);
+    if (!Number.isNaN(dt.getTime())) nextDate = dt;
+  }
+
+  // intervalDays: positive integer or null -> omit
+  let intervalDays: number | null = null;
+  if (body?.intervalDays !== undefined && body.intervalDays !== null) {
+    const n = Number(body.intervalDays);
+    intervalDays = Number.isFinite(n) && n > 0 ? n : null;
+  }
+
+  const canceled =
+    typeof body?.canceled === "boolean" ? body.canceled : undefined;
+
+  // Build create data as a plain object, then cast on the Prisma call
+  const createData: Record<string, any> = { userId: uid, service };
+  if (plan !== null) createData.plan = plan;
+  if (manageUrl !== null) createData.manageUrl = manageUrl;
+  if (price !== null) createData.price = price;
+  if (nextDate !== null) createData.nextDate = nextDate;
+  if (intervalDays !== null) createData.intervalDays = intervalDays;
+  if (canceled !== undefined) createData.canceled = canceled;
+
+  const created = await prisma.subscription.create({
+    // Cast keeps TS happy even if your generated Prisma types lag a bit
+    data: createData as any,
+  });
+
+  return NextResponse.json(toDTO(created), { status: 201 });
 }
