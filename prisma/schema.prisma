@@ -94,20 +94,26 @@ model Item {
 }
 
 model Subscription {
-  id        String   @id @default(cuid())
-  userId    String
-  service   String
-  plan      String?
-  manageUrl String?
-  price     Decimal  @db.Decimal(10, 2)
-  nextDate  DateTime
-  createdAt DateTime @default(now())
-  updatedAt DateTime @updatedAt
+  id           String    @id @default(cuid())
+  userId       String
+  user         User      @relation(fields: [userId], references: [id], onDelete: Cascade)
 
-  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  service      String
+  plan         String?
+  manageUrl    String?
+  price        Decimal?  @db.Decimal(10, 2)
+  nextDate     DateTime? @db.Timestamptz(6)
+
+  // NEW
+  intervalDays Int?      // e.g. 30; if missing we'll assume 1 month
+  canceled     Boolean   @default(false)
+
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
 
   @@index([userId])
 }
+
 
 enum OrderStatus {
   pending   // created by user click or schedule
