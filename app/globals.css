@@ -1,0 +1,86 @@
+/* Tailwind v4 base (must be first) */
+@import "tailwindcss";
+
+/* Design tokens */
+:root {
+  --background: #0b0f1a; /* dark navy/black */
+  --foreground: #ffffff; /* light text */
+}
+
+/* Base */
+html, body { height: 100%; }
+body {
+  margin: 0;
+  background: var(--background);
+  color: var(--foreground);
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  text-rendering: optimizeLegibility;
+}
+
+/* Links */
+a { text-decoration: none; transition: opacity .15s ease; }
+a:hover { opacity: .9; }
+
+/* Selection */
+::selection {
+  background: rgba(255,255,255,.18);
+  color: #fff;
+}
+
+/* Accessible focus for keyboard users */
+:focus-visible {
+  outline: 2px solid rgba(255,255,255,.4);
+  outline-offset: 2px;
+}
+
+/* Inputs on dark backgrounds */
+input, textarea, select { caret-color: #fff; }
+::placeholder { color: rgba(255,255,255,.55); }
+
+/* Make date/time pickers visible on dark bg */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"],
+input[type="time"] {
+  color-scheme: dark; /* helps many browsers render light icons */
+}
+
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  filter: invert(1);
+  opacity: 1;
+  cursor: pointer;
+}
+
+/* Respect reduced-motion users */
+@media (prefers-reduced-motion: reduce) {
+  * {
+    animation-duration: .001ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: .001ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+/* Improve date/time pickers on dark background */
+input[type="date"],
+input[type="datetime-local"],
+input[type="month"],
+input[type="week"],
+input[type="time"] {
+  color-scheme: dark;
+}
+
+/* Hide the native calendar icon; we render our own white icon */
+input[type="date"]::-webkit-calendar-picker-indicator,
+input[type="datetime-local"]::-webkit-calendar-picker-indicator,
+input[type="month"]::-webkit-calendar-picker-indicator,
+input[type="week"]::-webkit-calendar-picker-indicator,
+input[type="time"]::-webkit-calendar-picker-indicator {
+  opacity: 0;
+}

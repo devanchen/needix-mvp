@@ -1,0 +1,272 @@
+// ---------- DATASOURCE & GENERATOR ----------
+datasource db {
+  provider  = "postgresql"
+  // Pooled URL (host ends with -pooler) — used by your app at runtime
+  url       = env("DATABASE_URL")
+  // Direct (unpooled) URL — used by Prisma Migrate
+  directUrl = env("DATABASE_URL_UNPOOLED")
+}
+
+generator client {
+  provider = "prisma-client-js"
+}
+
+// ---------- AUTH (NextAuth / Auth.js) ----------
+model User {
+  id            String    @id @default(cuid())
+  name          String?
+  email         String?   @unique
+  emailVerified DateTime?
+  image         String?
+  createdAt     DateTime  @default(now())
+
+  // Notification prefs (used for reminders)
+  phone               String?
+  wantsEmailReminders Boolean @default(true)
+  wantsSmsReminders   Boolean @default(false)
+  timezone            String  @default("America/Denver")
+
+  // Auth relations
+  accounts Account[]
+  sessions Session[]
+
+  // App relations
+  items         Item[]
+  subscriptions Subscription[] // tracker of 3rd-party services
+  orders        OrderRequest[]
+  membership    Membership? // Needix paid membership (Stripe)
+
+  // Detection relations
+  detections  Detection[]
+  suggestions SubscriptionSuggestion[]
+}
+
+model Account {
+  id                String  @id @default(cuid())
+  userId            String
+  type              String
+  provider          String
+  providerAccountId String
+  refresh_token     String?
+  access_token      String?
+  expires_at        Int?
+  token_type        String?
+  scope             String?
+  id_token          String?
+  session_state     String?
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([provider, providerAccountId])
+}
+
+model Session {
+  id           String   @id @default(cuid())
+  sessionToken String   @unique
+  userId       String
+  expires      DateTime
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+}
+
+model VerificationToken {
+  identifier String
+  token      String   @unique
+  expires    DateTime
+
+  @@unique([identifier, token])
+}
+
+// ---------- APP DOMAIN MODELS ----------
+enum Retailer {
+  Amazon
+  Walmart
+  Target
+  Costco
+  Other
+}
+
+model Item {
+  id        String   @id @default(cuid())
+  userId    String
+  name      String
+  retailer  Retailer
+  note      String?
+  image     String?
+  createdAt DateTime @default(now())
+
+  user          User           @relation(fields: [userId], references: [id], onDelete: Cascade)
+  priceRules    PriceRule[]
+  orderRequests OrderRequest[]
+
+  @@index([userId])
+}
+
+model PriceRule {
+  id        String   @id @default(cuid())
+  itemId    String
+  ceiling   Decimal  @db.Decimal(10, 2)
+  createdAt DateTime @default(now())
+
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([itemId])
+}
+
+enum OrderStatus {
+  pending // created by user click or schedule
+  held // price > ceiling
+  sent // forwarded to retailer flow
+}
+
+model OrderRequest {
+  id               String      @id @default(cuid())
+  userId           String
+  itemId           String
+  retailer         Retailer
+  lastCheckedPrice Decimal     @db.Decimal(10, 2)
+  ceiling          Decimal     @db.Decimal(10, 2)
+  status           OrderStatus @default(pending)
+  createdAt        DateTime    @default(now())
+
+  user User @relation(fields: [userId], references: [id], onDelete: Cascade)
+  item Item @relation(fields: [itemId], references: [id], onDelete: Cascade)
+
+  @@index([userId, status])
+  @@index([itemId])
+}
+
+// Users’ personal subscriptions (Netflix, Costco, etc.)
+model Subscription {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  service   String
+  plan      String?
+  manageUrl String?
+  price     Decimal?  @db.Decimal(10, 2)
+  nextDate  DateTime? @db.Timestamptz(6)
+
+  // Already in your repo
+  intervalDays Int?
+  canceled     Boolean @default(false)
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // 1:1 linkage if a Detection produced this subscription
+  createdFromDetectionId String?    @unique
+  createdFromDetection   Detection? @relation("CreatedFromDetection", fields: [createdFromDetectionId], references: [id], onDelete: SetNull)
+
+  // Opposite side of Detection.resolvedToSubscription
+  resolvedFromDetection Detection? @relation("ResolvedToSubscription")
+
+  @@index([userId])
+  @@index([userId, nextDate])
+  @@index([canceled, nextDate])
+}
+
+// ---------- Paid Membership via Stripe ----------
+model Membership {
+  id     String @id @default(cuid())
+  userId String @unique
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  // Stripe identifiers
+  stripeCustomerId     String? @unique
+  stripeSubscriptionId String? @unique
+  priceId              String? // Stripe price id (recurring)
+
+  // Status mirrors Stripe
+  status           String?
+  currentPeriodEnd DateTime?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  @@index([status])
+}
+
+// ---------- SUBSCRIPTION DETECTION (new) ----------
+enum Cadence {
+  weekly
+  monthly
+  yearly
+  unknown
+}
+
+model Merchant {
+  id      String   @id @default(cuid())
+  name    String   @unique
+  aliases String[]
+  website String?
+  iconUrl String?
+
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  // Back-relation for Detection.merchant
+  detections Detection[]
+}
+
+model Detection {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  source String
+  rawId  String?
+
+  merchantId  String?
+  merchant    Merchant? @relation(fields: [merchantId], references: [id], onDelete: SetNull)
+  merchantRaw String
+
+  amount     Decimal? @db.Decimal(10, 2)
+  currency   String?
+  occurredAt DateTime
+
+  cadence    Cadence?
+  confidence Int
+
+  payload Json
+
+  // If the user accepts and a Subscription is created/linked (1:1)
+  resolvedToSubscriptionId String?       @unique
+  resolvedToSubscription   Subscription? @relation("ResolvedToSubscription", fields: [resolvedToSubscriptionId], references: [id], onDelete: SetNull)
+
+  // Opposite side of Subscription.createdFromDetection
+  createdSubscription Subscription? @relation("CreatedFromDetection")
+
+  // Back-relation to SubscriptionSuggestion.detection
+  suggestion SubscriptionSuggestion?
+
+  createdAt DateTime @default(now())
+
+  @@index([userId])
+  @@index([userId, occurredAt])
+  @@index([merchantId])
+  @@index([confidence])
+  @@index([source, rawId])
+}
+
+// User-facing suggestion derived from a Detection
+model SubscriptionSuggestion {
+  id     String @id @default(cuid())
+  userId String
+  user   User   @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  detectionId String    @unique
+  detection   Detection @relation(fields: [detectionId], references: [id], onDelete: Cascade)
+
+  service   String
+  plan      String?
+  price     Decimal?  @db.Decimal(10, 2)
+  nextDate  DateTime?
+  manageUrl String?
+
+  confidence Int
+  createdAt  DateTime @default(now())
+
+  @@index([userId, confidence])
+}

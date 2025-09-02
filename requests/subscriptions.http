@@ -1,0 +1,64 @@
+@baseUrl = http://localhost:3000
+@cookie = authjs.session-token=eyJhbGciOiJkaXIiLCJlbmMiOiJBMjU2Q0JDLUhTNTEyIiwia2lkIjoiTVhxdmVWOEpJT2hmcFBld2ZySFBybUlzdUo0b2k2S3U0Y3BXQndSeUx6WW82NUJfd0M5TFQ1UGJjS2xNNHgySHZCcHMwS0R0clhJemJvRmhON2Y1SFEifQ..Rd3orvJHseUNnTTgBpaq8w.WoKWSbfHekP_Sk-ksTYHJoQ0SE1_lJNJ2mFJIzXK7yXpiqacQHGDByvqheOUveCYzIw8pNsqKR5dVtFOcASkqg_LLGONfM0dVwK5DuLISQNDqwr548soOMZK3x_nG-Y8m9YVxOeOQ6w_RGMhf2-LQx5z4GCj5wl8incFGRsu-GpYf7M74GkiG7BhNXoj8gZp1fkKdU2rBLjNKhbFaH3WPFPLlvxRCLRLUjLrx8a-AdcmPj5f4m1i-cv6nk9nNFqGQictQ9Hu6u15Af_07QqYANl4C1u5R3owdZQKWJV_OyI.LwDjYLWLmTof6bTmV6HJ2Wu-bcmcFoPrtjesm4itxqM
+# paste the id from the Create response here:
+@id = cmezb6in50003orq8oiptvn84
+
+### Check session
+GET {{baseUrl}}/api/auth/session
+Cookie: {{cookie}}
+
+### Create subscription
+POST {{baseUrl}}/api/subscriptions
+Content-Type: application/json
+Cookie: {{cookie}}
+
+{
+  "service": "Netflix",
+  "plan": "Standard",
+  "manageUrl": "https://www.netflix.com/cancel",
+  "price": 15.99,
+  "nextDate": "2025-09-15"
+}
+
+### Update subscription
+PUT {{baseUrl}}/api/subscriptions/{{id}}
+Content-Type: application/json
+Cookie: {{cookie}}
+
+{
+  "price": 13.49
+}
+
+### Delete subscription
+DELETE {{baseUrl}}/api/subscriptions/{{id}}
+Cookie: {{cookie}}
+
+### Newsletter
+POST http://localhost:3000/api/newsletter
+Content-Type: application/json
+x-dev-key: needix123
+
+{
+  "email": "test@example.com"
+}
+
+### Contact
+POST http://localhost:3000/api/contact
+Content-Type: application/json
+x-dev-key: needix123
+
+{
+  "name": "Devan",
+  "email": "devan@example.com",
+  "message": "Hello from Needix local!"
+}
+
+
+### Newsletter signup (dev bypass)
+POST http://localhost:3000/api/newsletter
+Content-Type: application/json
+x-dev-key: needix123
+
+{
+  "email": "test-subscriber@example.com"
+}

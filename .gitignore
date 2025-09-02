@@ -1,0 +1,24 @@
+# Node/Next
+node_modules/
+.next/
+out/
+dist/
+*.log
+npm-debug.log*
+.yarn/*
+.pnp.*
+
+# Env & local
+.env
+.env.*
+!.env.example
+
+# OS/editor
+.DS_Store
+Thumbs.db
+.vscode/
+
+# Prisma build output
+generated/
+
+.vercel

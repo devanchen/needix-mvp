@@ -1,0 +1,26 @@
+@baseUrl = http://localhost:3000
+
+### 1) Subscribe with a valid email
+POST {{baseUrl}}/api/newsletter
+Content-Type: application/json
+
+{
+  "email": "test@example.com"
+}
+
+### 2) Try invalid email (should return 400)
+POST {{baseUrl}}/api/newsletter
+Content-Type: application/json
+
+{
+  "email": "not-an-email"
+}
+
+### 3) Honeypot filled (should silently succeed)
+POST {{baseUrl}}/api/newsletter
+Content-Type: application/json
+
+{
+  "email": "bot@example.com",
+  "hp": "filled"
+}
