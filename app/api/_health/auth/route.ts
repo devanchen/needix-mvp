@@ -1,6 +1,6 @@
 // app/api/_health/auth/route.ts
 import { NextResponse } from "next/server";
-import { auth } from "@/auth";
+import { auth } from "../../../../auth";
 
 export const runtime = "nodejs";
 
@@ -11,8 +11,7 @@ export async function GET() {
       ok: true,
       hasSession: Boolean(session),
       env: {
-        NEXTAUTH_URL: Boolean(process.env.NEXTAUTH_URL),
-        AUTH_URL: Boolean(process.env.AUTH_URL),
+        NEXTAUTH_URL: Boolean(process.env.NEXTAUTH_URL ?? process.env.AUTH_URL),
         AUTH_SECRET: Boolean(process.env.AUTH_SECRET),
         GOOGLE_KEYS_PRESENT: Boolean(
           (process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID) &&
@@ -21,7 +20,6 @@ export async function GET() {
       },
     });
   } catch (e) {
-    console.error("[_health/auth] error", e);
     return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
   }
 }
