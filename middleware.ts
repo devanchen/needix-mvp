@@ -1,6 +1,12 @@
 // middleware.ts
-export { auth as middleware } from "./auth";
+import { NextResponse } from "next/server";
+
+export function middleware() {
+  return NextResponse.next();
+}
 
 export const config = {
-  matcher: ["/dashboard/:path*", "/items/:path*", "/subscriptions/:path*", "/orders/:path*"],
+  matcher: [
+    "/((?!api/auth|_next/static|_next/image|favicon\\.ico|.*\\..*).*)",
+  ],
 };
