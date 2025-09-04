@@ -1,46 +1,84 @@
-// components/dashboard/CheckoutStatusBanner.tsx
 "use client";
 
-import { useEffect, useRef } from "react";
-import { useSearchParams, useRouter } from "next/navigation";
-import BillingActions from "@/components/billing/BillingActions";
+import Link from "next/link";
+import { useState } from "react";
 
-export default function CheckoutStatusBanner({ active }: { active: boolean }) {
-  const sp = useSearchParams();
-  const router = useRouter();
-  const cleaned = useRef(false);
+type Props = {
+  /** Whether the user currently has an active Pro subscription */
+  active?: boolean;
+  /** Show success state right after a completed checkout */
+  checkoutSuccess?: boolean;
+};
 
-  const checkout = sp.get("checkout"); // "success" | "canceled" | null
-  const isSuccess = checkout === "success";
-  const isCanceled = checkout === "canceled";
+export default function CheckoutStatusBanner({
+  active = false,
+  checkoutSuccess = false,
+}: Props) {
+  const [dismissed, setDismissed] = useState(false);
+  if (dismissed) return null;
 
-  useEffect(() => {
-    if (!checkout || cleaned.current) return;
-    cleaned.current = true;
-    const url = new URL(window.location.href);
-    url.searchParams.delete("checkout");
-    router.replace(url.toString(), { scroll: false });
-  }, [checkout, router]);
+  // Nothing to show
+  if (!active && !checkoutSuccess) return null;
 
-  if (!isSuccess && !isCanceled) return null;
+  const base =
+    "rounded-xl border px-4 py-3 text-sm flex items-start justify-between gap-3";
 
-  return isSuccess ? (
-    <div className="mt-4 rounded-xl border border-emerald-400/30 bg-emerald-400/10 p-4 text-emerald-100">
-      <div className="text-sm font-semibold">Thanks — your checkout completed!</div>
-      <div className="mt-1 text-xs">
-        If you don&apos;t see your membership active yet, click <strong>Manage billing / Refresh</strong>.
+  if (checkoutSuccess) {
+    return (
+      <div className={`${base} border-emerald-500/25 bg-emerald-500/10`}>
+        <div>
+          <div className="font-medium text-emerald-200">
+            🎉 Thanks for subscribing!
+          </div>
+          <div className="mt-1 text-emerald-100/80">
+            Your Pro features will be available shortly.
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/subscriptions"
+            className="rounded-md bg-black px-3 py-1.5 text-white hover:bg-black/90"
+          >
+            Continue
+          </Link>
+          <button
+            onClick={() => setDismissed(true)}
+            className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-white/80 hover:bg-white/15"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
-      <div className="mt-3">
-        <BillingActions active={active} checkoutSuccess />
+    );
+  }
+
+  // Active plan banner
+  if (active) {
+    return (
+      <div className={`${base} border-white/15 bg-white/[0.04]`}>
+        <div>
+          <div className="font-medium text-white">Needix Pro is active ✓</div>
+          <div className="mt-1 text-white/70">
+            Manage your subscription, payment method, or invoices anytime.
+          </div>
+        </div>
+        <div className="flex shrink-0 items-center gap-2">
+          <Link
+            href="/billing"
+            className="rounded-md border border-white/20 bg-white/10 px-3 py-1.5 text-white hover:bg-white/15"
+          >
+            Open billing
+          </Link>
+          <button
+            onClick={() => setDismissed(true)}
+            className="rounded-md border border-white/15 bg-white/10 px-2 py-1 text-white/80 hover:bg-white/15"
+          >
+            Dismiss
+          </button>
+        </div>
       </div>
-    </div>
-  ) : (
-    <div className="mt-4 rounded-xl border border-amber-400/30 bg-amber-400/10 p-4 text-amber-100">
-      <div className="text-sm font-semibold">Checkout canceled.</div>
-      <div className="mt-1 text-xs">You can restart it anytime below.</div>
-      <div className="mt-3">
-        <BillingActions active={active} />
-      </div>
-    </div>
-  );
+    );
+  }
+
+  return null;
 }
