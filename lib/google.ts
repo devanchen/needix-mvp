@@ -1,58 +1,113 @@
 // lib/google.ts
-import { google } from "googleapis";
-import { auth } from "@/auth";
 import { prisma } from "@/lib/prisma";
 
-export type GmailContext = {
-  gmail: ReturnType<typeof google.gmail>;
-  userId: string;
+export type GoogleAccount = {
+  accessToken: string | null;
+  refreshToken: string | null;
+  expiresAt: number | null; // seconds since epoch
 };
 
-export async function getGmailForUser(): Promise<GmailContext> {
-  const session = await auth();
-  const userId = session?.user?.id;
-  if (!userId) throw new Error("Unauthorized");
-
-  const account = await prisma.account.findFirst({
+// Pull Google account row for a user
+export async function getGoogleAccountForUser(userId: string): Promise<GoogleAccount | null> {
+  const acc = await prisma.account.findFirst({
     where: { userId, provider: "google" },
+    select: { access_token: true, refresh_token: true, expires_at: true },
   });
-  if (!account?.access_token) {
-    throw new Error("No Google account with Gmail permissions linked");
+  if (!acc) return null;
+  return {
+    accessToken: acc.access_token ?? null,
+    refreshToken: acc.refresh_token ?? null,
+    expiresAt: acc.expires_at ?? null,
+  };
+}
+
+// Ensure we have a valid (non-expired) access token; refresh if needed.
+// Returns the access token string or null if we cannot obtain one.
+export async function ensureGoogleAccessToken(userId: string): Promise<string | null> {
+  const acc = await prisma.account.findFirst({
+    where: { userId, provider: "google" },
+    select: { id: true, access_token: true, refresh_token: true, expires_at: true },
+  });
+  if (!acc) return null;
+
+  const now = Math.floor(Date.now() / 1000);
+  const isExpired = typeof acc.expires_at === "number" && acc.expires_at !== 0 && acc.expires_at < now - 60;
+
+  if (!isExpired && acc.access_token) {
+    return acc.access_token;
   }
 
-  const oauth2Client = new google.auth.OAuth2(
-    process.env.GOOGLE_CLIENT_ID,
-    process.env.GOOGLE_CLIENT_SECRET
-  );
-
-  oauth2Client.setCredentials({
-    access_token: account.access_token ?? undefined,
-    refresh_token: account.refresh_token ?? undefined,
-    expiry_date: account.expires_at ? account.expires_at * 1000 : undefined,
-  });
-
-  try {
-    const expMs = account.expires_at ? account.expires_at * 1000 : 0;
-    if (!expMs || expMs < Date.now() + 60_000) {
-      const refreshed = await oauth2Client.refreshAccessToken();
-      const creds = refreshed.credentials;
-      await prisma.account.update({
-        where: { id: account.id },
-        data: {
-          access_token: creds.access_token ?? account.access_token ?? undefined,
-          refresh_token: creds.refresh_token ?? account.refresh_token ?? undefined,
-          expires_at: creds.expiry_date ? Math.floor(creds.expiry_date / 1000) : account.expires_at ?? undefined,
-        },
-      });
-      oauth2Client.setCredentials({
-        access_token: creds.access_token ?? undefined,
-        refresh_token: creds.refresh_token ?? account.refresh_token ?? undefined,
-        expiry_date: creds.expiry_date,
-      });
-    }
-  } catch (err) {
-    console.warn("Gmail token refresh failed", err);
+  // Need to refresh
+  if (!acc.refresh_token) {
+    return null;
   }
 
-  return { gmail: google.gmail({ version: "v1", auth: oauth2Client }), userId };
+  const clientId = process.env.AUTH_GOOGLE_ID ?? process.env.GOOGLE_CLIENT_ID ?? "";
+  const clientSecret = process.env.AUTH_GOOGLE_SECRET ?? process.env.GOOGLE_CLIENT_SECRET ?? "";
+  if (!clientId || !clientSecret) {
+    return null;
+  }
+
+  const body = new URLSearchParams({
+    client_id: clientId,
+    client_secret: clientSecret,
+    grant_type: "refresh_token",
+    refresh_token: acc.refresh_token,
+  });
+
+  const resp = await fetch("https://oauth2.googleapis.com/token", {
+    method: "POST",
+    headers: { "Content-Type": "application/x-www-form-urlencoded" },
+    body,
+    cache: "no-store",
+  });
+
+  if (!resp.ok) {
+    // refresh failed (revoked refresh token, etc.)
+    return null;
+  }
+
+  const json = (await resp.json()) as {
+    access_token?: string;
+    expires_in?: number;
+    id_token?: string;
+    scope?: string;
+    token_type?: string;
+  };
+
+  const newAccess = json.access_token ?? null;
+  if (!newAccess) return null;
+
+  const newExpiresAt = typeof json.expires_in === "number" ? Math.floor(Date.now() / 1000) + json.expires_in : null;
+
+  // Persist the new access token/expires
+  await prisma.account.update({
+    where: { id: acc.id },
+    data: { access_token: newAccess, expires_at: newExpiresAt ?? undefined },
+  });
+
+  return newAccess;
+}
+
+// Very naive parser for subscription-looking subjects (demo)
+export function guessSubscriptionsFromSubjects(
+  subjects: string[]
+): Array<{ service: string; price?: number; nextDate?: string }> {
+  const out: Array<{ service: string; price?: number; nextDate?: string }> = [];
+  for (const s of subjects) {
+    const mPrice = s.match(/\$([0-9]+(?:\.[0-9]{2})?)/);
+    const mDate = s.match(/\b(20[2-9][0-9]-[01][0-9]-[0-3][0-9])\b/);
+    const svc = s
+      .replace(/subscription/i, "")
+      .replace(/renew(al)?/i, "")
+      .replace(/receipt/i, "")
+      .split(/[-–—|:]/)[0]
+      .trim();
+    out.push({
+      service: svc || "Subscription",
+      price: mPrice ? Number(mPrice[1]) : undefined,
+      nextDate: mDate ? mDate[1] : undefined,
+    });
+  }
+  return out;
 }

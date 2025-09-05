@@ -1,80 +1,73 @@
 // app/api/stripe/create-checkout-session/route.ts
+import { NextResponse } from "next/server";
+import { auth } from "@/auth";
+import { stripe } from "@/lib/stripe";
+
+const PRICE_ID = process.env.STRIPE_PRICE_ID;
+const SITE_URL =
+  process.env.NEXT_PUBLIC_SITE_URL ||
+  process.env.AUTH_URL ||
+  process.env.NEXTAUTH_URL ||
+  "http://localhost:3000";
+
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-import { NextResponse } from "next/server";
-import Stripe from "stripe";
-import { auth } from "@/auth";
-import { prisma } from "@/lib/prisma";
-
-function siteUrl(): string {
-  return process.env.NEXT_PUBLIC_SITE_URL || "http://localhost:3000";
-}
-
 export async function POST() {
   const session = await auth();
-  const userId = session?.user?.id;
-  const email = session?.user?.email ?? undefined;
+  const email = session?.user?.email ?? null;
 
-  if (!userId) {
-    // Not signed in → client will redirect to signin with callback
-    return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+  if (!email) {
+    // Do NOT redirect here; let the client decide to call signIn
+    return new NextResponse("Unauthorized", { status: 401 });
+  }
+  if (!PRICE_ID) {
+    return new NextResponse("Missing STRIPE_PRICE_ID", { status: 500 });
   }
 
-  const secret = process.env.STRIPE_SECRET_KEY ?? "";
-  const priceId = process.env.STRIPE_PRICE_ID ?? "";
+  // Find or create the Stripe customer
+  const existing = await stripe.customers.list({ email, limit: 1 });
+  const customer =
+    existing.data[0] ??
+    (await stripe.customers.create({
+      email,
+      metadata: { userEmail: email },
+    }));
 
-  if (!secret || !priceId) {
-    return NextResponse.json(
-      { error: "Stripe is not configured (missing STRIPE_SECRET_KEY or STRIPE_PRICE_ID)." },
-      { status: 500 },
-    );
-  }
-
-  // ✅ Let the SDK use its pinned API version (avoid TS literal mismatch)
-  const stripe = new Stripe(secret);
-
-  // Ensure a Stripe customer and a Membership row exist for this user
-  const existing = await prisma.membership.findUnique({
-    where: { userId },
-    select: { id: true, stripeCustomerId: true },
+  // If the customer already has an active/trialing subscription on this price,
+  // send them to the billing portal instead of creating a new checkout.
+  const subs = await stripe.subscriptions.list({
+    customer: customer.id,
+    status: "all",
+    expand: ["data.default_payment_method"],
+    limit: 10,
   });
 
-  let stripeCustomerId = existing?.stripeCustomerId ?? undefined;
+  const hasActive = subs.data.some(
+    (s) =>
+      (s.status === "active" || s.status === "trialing" || s.status === "past_due") &&
+      s.items.data.some((it) => it.price.id === PRICE_ID)
+  );
 
-  if (!stripeCustomerId) {
-    const customer = await stripe.customers.create({
-      email,
-      metadata: { userId },
+  if (hasActive) {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customer.id,
+      return_url: `${SITE_URL}/billing`,
     });
-    stripeCustomerId = customer.id;
-
-    await prisma.membership.upsert({
-      where: { userId },
-      update: { stripeCustomerId, priceId },
-      create: {
-        userId,
-        stripeCustomerId,
-        priceId,
-        status: "incomplete",
-      },
-    });
+    return NextResponse.json({ url: portal.url }, { status: 200 });
   }
-
-  const success = `${siteUrl()}/dashboard?checkout=success`;
-  const cancel = `${siteUrl()}/pricing?canceled=1`;
 
   const checkout = await stripe.checkout.sessions.create({
     mode: "subscription",
-    success_url: success,
-    cancel_url: cancel,
-    customer: stripeCustomerId,
-    line_items: [{ price: priceId, quantity: 1 }],
+    customer: customer.id,
+    line_items: [{ price: PRICE_ID, quantity: 1 }],
+    success_url: `${SITE_URL}/billing/success?session_id={CHECKOUT_SESSION_ID}`,
+    cancel_url: `${SITE_URL}/pricing`,
     allow_promotion_codes: true,
     subscription_data: {
-      metadata: { userId },
+      metadata: { userEmail: email },
     },
-    client_reference_id: userId,
+    metadata: { userEmail: email },
   });
 
   return NextResponse.json({ url: checkout.url }, { status: 200 });

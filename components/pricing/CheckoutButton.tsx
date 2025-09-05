@@ -1,45 +1,71 @@
-// components/pricing/CheckoutButton.tsx
 "use client";
 
-import { useState } from "react";
+import { useCallback, useEffect, useState } from "react";
+import { useSearchParams } from "next/navigation";
+import { useSession, signIn } from "next-auth/react";
 
 export default function CheckoutButton() {
-  const [busy, setBusy] = useState(false);
-  const [err, setErr] = useState<string>("");
+  const { status } = useSession(); // "authenticated" | "unauthenticated" | "loading"
+  const params = useSearchParams();
+  const doCheckout = params.get("doCheckout"); // stable primitive for deps
+  const [loading, setLoading] = useState(false);
+  const [autoRan, setAutoRan] = useState(false);
 
-  async function go() {
-    setBusy(true);
-    setErr("");
+  const startCheckout = useCallback(async () => {
+    setLoading(true);
     try {
-      const res = await fetch("/api/stripe/create-checkout-session", { method: "POST" });
+      // If not signed in, go sign in and come back here to auto-continue
+      if (status !== "authenticated") {
+        await signIn(undefined, { callbackUrl: "/pricing?doCheckout=1" });
+        return;
+      }
+
+      const res = await fetch("/api/stripe/create-checkout-session", {
+        method: "POST",
+      });
+
       if (res.status === 401) {
-        const cb = encodeURIComponent("/pricing");
-        window.location.href = `/signin?callbackUrl=${cb}`;
+        await signIn(undefined, { callbackUrl: "/pricing?doCheckout=1" });
         return;
       }
-      const data: { url?: string; error?: string } = await res.json();
-      if (res.ok && data.url) {
-        window.location.href = data.url;
+
+      if (!res.ok) {
+        const msg = await res.text().catch(() => "Unable to start checkout.");
+        alert(msg);
+        setLoading(false);
         return;
       }
-      setErr(data.error ?? "Could not start checkout.");
-    } catch {
-      setErr("Could not start checkout.");
-    } finally {
-      setBusy(false);
+
+      const { url } = (await res.json()) as { url?: string };
+      if (!url) {
+        alert("Checkout could not be created. Please try again.");
+        setLoading(false);
+        return;
+      }
+
+      window.location.assign(url);
+    } catch (err) {
+      console.error(err);
+      alert("Something went wrong starting checkout.");
+      setLoading(false);
     }
-  }
+  }, [status]);
+
+  // Auto-resume checkout after sign-in when ?doCheckout=1 is present
+  useEffect(() => {
+    if (!autoRan && status === "authenticated" && doCheckout === "1" && !loading) {
+      setAutoRan(true);
+      void startCheckout();
+    }
+  }, [autoRan, status, doCheckout, loading, startCheckout]);
 
   return (
-    <div className="flex flex-col items-stretch">
-      <button
-        onClick={go}
-        disabled={busy}
-        className="inline-block rounded-md border border-emerald-400/40 bg-emerald-400/10 px-4 py-2 text-sm hover:bg-emerald-400/15 disabled:opacity-60"
-      >
-        {busy ? "Starting checkout…" : "Upgrade — $4.99/mo"}
-      </button>
-      {err && <div className="mt-2 text-xs text-amber-300">{err}</div>}
-    </div>
+    <button
+      onClick={startCheckout}
+      disabled={loading}
+      className="rounded-xl bg-black px-4 py-2 text-sm text-white hover:bg-black/90 disabled:opacity-60"
+    >
+      {loading ? "Starting…" : "Upgrade — $4.99/mo"}
+    </button>
   );
 }
